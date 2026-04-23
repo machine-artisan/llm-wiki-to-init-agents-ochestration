@@ -27,3 +27,6 @@ sources/, agent/, Makefile, index.html 추가.
 
 ## [2026-04-23] build | index.html
 wiki/profile.md, goals.md, interests.md로부터 명함 페이지 재생성.
+
+## [2026-04-23] install | qwen2.5-coder:32b
+Node A에 qwen2.5-coder:32b 다운로드 완료. gemma3:27b와 함께 두 모델 모두 가동 확인. opencode TUI tool-calling 준비 완료.

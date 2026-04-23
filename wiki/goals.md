@@ -8,7 +8,7 @@ tags: [goals, roadmap]
 
 ## 단기 목표 (이번 주)
 
-- [ ] `qwen2.5-coder:32b` 다운로드 완료 → opencode TUI 정상 동작 확인
+- [ ] `qwen2.5-coder:32b` opencode TUI 정상 동작 확인
 - [ ] `python scripts/init_leader_state.py` 실행 → `state/global_state.json` 초기화
 - [ ] Node A `git_sync_daemon.py` 시작
 - [ ] Node B `git_sync_daemon.py` 시작 → 두 노드 동시 폴링 확인
@@ -39,3 +39,4 @@ tags: [goals, roadmap]
 - [x] LLM-Wiki 초기 문서 생성 (architecture, infra, orchestration ADR)
 - [x] Graceful shutdown 데몬 구현
 - [x] LLM-Wiki Karpathy 표준으로 전환
+- [x] qwen2.5-coder:32b Node A 설치 완료
