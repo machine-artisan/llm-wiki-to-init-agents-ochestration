@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# init_env.sh — Detect GPU VRAM and deploy the appropriate Ollama model.
+# init_env.sh — Detect GPU VRAM, set up Python venv, and deploy Ollama model.
 # Run once after `git clone` on each node.
 set -euo pipefail
 
-OLLAMA_MIN_VERSION="0.1.30"
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+VENV_DIR="${REPO_DIR}/.venv"
 
 # ── VRAM detection ────────────────────────────────────────────────────────────
 detect_vram_gb() {
@@ -32,7 +33,42 @@ select_role() {
     fi
 }
 
-# ── Ollama install/upgrade ────────────────────────────────────────────────────
+# ── Python 설치 확인 ──────────────────────────────────────────────────────────
+ensure_python3() {
+    if command -v python3 &>/dev/null; then
+        echo "[init] Python3 found: $(python3 --version)"
+        return
+    fi
+    echo "[init] python3 not found. Installing..."
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq
+        sudo apt-get install -y python3 python3-venv python3-full
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y python3 python3-virtualenv
+    elif command -v brew &>/dev/null; then
+        brew install python3
+    else
+        echo "[init] ERROR: Cannot auto-install python3. Install it manually and re-run."
+        exit 1
+    fi
+}
+
+# ── Python venv 생성 및 의존성 설치 ──────────────────────────────────────────
+setup_venv() {
+    if [[ ! -d "${VENV_DIR}" ]]; then
+        echo "[init] Creating virtual environment at .venv/ ..."
+        python3 -m venv "${VENV_DIR}"
+    else
+        echo "[init] Virtual environment already exists at .venv/"
+    fi
+
+    echo "[init] Installing Python dependencies into .venv/ ..."
+    "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
+    "${VENV_DIR}/bin/pip" install --quiet -r "${REPO_DIR}/requirements.txt"
+    echo "[init] Python deps installed."
+}
+
+# ── Ollama install ────────────────────────────────────────────────────────────
 ensure_ollama() {
     if ! command -v ollama &>/dev/null; then
         echo "[init] Installing Ollama..."
@@ -52,21 +88,11 @@ start_ollama_server() {
     fi
 }
 
-# ── Python deps ───────────────────────────────────────────────────────────────
-install_python_deps() {
-    if ! command -v pip &>/dev/null; then
-        echo "[init] pip not found — skipping Python deps (install manually)"
-        return
-    fi
-    echo "[init] Installing Python dependencies..."
-    pip install --quiet langgraph pydantic httpx gitpython
-}
-
 # ── Node config file ──────────────────────────────────────────────────────────
 write_node_config() {
     local role="$1" model="$2" vram_gb="$3"
-    mkdir -p state
-    cat > state/node_config.json <<EOF
+    mkdir -p "${REPO_DIR}/state"
+    cat > "${REPO_DIR}/state/node_config.json" <<EOF
 {
   "role": "${role}",
   "ollama_model": "${model}",
@@ -80,6 +106,8 @@ EOF
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
+    cd "${REPO_DIR}"
+
     echo "======================================================"
     echo "  llm-wiki-to-init-agents-ochestration — Node Init   "
     echo "======================================================"
@@ -93,9 +121,10 @@ main() {
     echo "[init] Selected model: ${MODEL}"
     echo ""
 
+    ensure_python3
+    setup_venv
     ensure_ollama
     start_ollama_server
-    install_python_deps
 
     echo "[init] Pulling Ollama model: ${MODEL} ..."
     ollama pull "${MODEL}"
@@ -103,8 +132,23 @@ main() {
     write_node_config "${ROLE}" "${MODEL}" "${VRAM_GB}"
 
     echo ""
-    echo "[init] Done. Start the polling daemon:"
-    echo "       python scripts/git_sync_daemon.py"
+    echo "======================================================"
+    echo "  Init complete. Next steps:"
+    echo ""
+    echo "  # 가상환경 활성화"
+    echo "  source .venv/bin/activate"
+    echo ""
+    if [[ "${ROLE}" == "deputy" ]]; then
+    echo "  # (Node A only) 전체 상태 초기화 — 최초 1회만"
+    echo "  python scripts/init_leader_state.py"
+    echo ""
+    fi
+    echo "  # Deputy 검증 (Node A only)"
+    echo "  python scripts/verify_deputy.py"
+    echo ""
+    echo "  # 데몬 시작"
+    echo "  python scripts/git_sync_daemon.py"
+    echo "======================================================"
 }
 
 main "$@"

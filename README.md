@@ -70,30 +70,67 @@ The Leader assigns tasks based on `complexity_score` (0–10):
 
 ## Quick Start
 
-### Step 1 — Leader initializes state (run once on Node A)
+> **전제조건:** `git`, `curl`, NVIDIA 드라이버(`nvidia-smi`) 설치 완료.
+> Python3가 없어도 `init_env.sh`가 자동 설치를 시도한다 (apt / dnf / brew 감지).
+
+### Step 0 — Clone
 
 ```bash
 git clone https://github.com/machine-artisan/llm-wiki-to-init-agents-ochestration
 cd llm-wiki-to-init-agents-ochestration
-pip install -r requirements.txt
-python scripts/init_leader_state.py   # creates state/global_state.json and pushes
 ```
 
-### Step 2 — Each node runs init and starts daemon
+### Step 1 — 환경 초기화 (모든 노드 공통)
 
 ```bash
-bash infra/init_env.sh             # detects GPU VRAM → pulls correct Ollama model
-python scripts/git_sync_daemon.py  # start polling daemon
+bash infra/init_env.sh
 ```
 
-Environment variables (optional):
+이 스크립트가 한 번에 수행하는 것:
+
+| 단계 | 내용 |
+|------|------|
+| Python3 확인 | 없으면 apt/dnf/brew로 자동 설치 |
+| `.venv/` 생성 | `python3 -m venv .venv` |
+| 의존성 설치 | `.venv/bin/pip install -r requirements.txt` |
+| Ollama 확인 | 없으면 자동 설치 후 서버 시작 |
+| 모델 pull | VRAM 감지 → `gemma3:27b` / `gemma2:2b` / `phi3:mini` 자동 선택 |
+| node_config 저장 | `state/node_config.json` (role, model, hostname 기록) |
+
+### Step 2 — 가상환경 활성화
+
+```bash
+source .venv/bin/activate
+```
+
+> 이후 모든 `python` 명령은 `.venv` 안에서 실행된다.
+> 쉘을 새로 열 때마다 이 명령을 다시 실행해야 한다.
+> 비활성화: `deactivate`
+
+### Step 3 — Node A만: 상태 초기화 (최초 1회)
+
+```bash
+# Node A (Deputy / 워크스테이션)에서만 실행
+python scripts/init_leader_state.py
+```
+
+`state/global_state.json`을 생성하고 GitHub에 push한다.
+Node B는 이 파일이 있어야 태스크 처리를 시작한다.
+
+### Step 4 — 데몬 시작
+
+```bash
+python scripts/git_sync_daemon.py
+```
+
+환경 변수 (선택):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `POLL_INTERVAL_SECONDS` | `30` | How often to pull and check for tasks |
-| `HEARTBEAT_INTERVAL` | `60` | How often to push a liveness commit |
-| `GIT_REMOTE` | `origin` | Remote name to pull/push |
-| `GIT_BRANCH` | `main` | Branch to track |
+| `POLL_INTERVAL_SECONDS` | `30` | 폴링 주기 (초) |
+| `HEARTBEAT_INTERVAL` | `60` | heartbeat 커밋 주기 (초) |
+| `GIT_REMOTE` | `origin` | 원격 저장소 이름 |
+| `GIT_BRANCH` | `main` | 추적 브랜치 |
 
 ## Verifying Deputy Model (Node A)
 
@@ -120,7 +157,7 @@ curl -s http://localhost:11434/api/generate \
 ### Deputy 역할 적합성 검증 (4-item suite)
 
 ```bash
-pip install httpx          # 아직 없는 경우
+# init_env.sh 실행 후 venv가 활성화된 상태에서
 python scripts/verify_deputy.py
 ```
 
