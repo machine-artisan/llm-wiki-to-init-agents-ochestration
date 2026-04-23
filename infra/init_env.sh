@@ -149,8 +149,16 @@ main() {
     ensure_ollama
     start_ollama_server
 
-    echo "[init] Pulling Ollama model: ${MODEL} ..."
+    echo "[init] Pulling Ollama model (daemon): ${MODEL} ..."
     ollama pull "${MODEL}"
+
+    # Deputy 노드는 opencode 전용 모델도 추가로 pull
+    # gemma3:27b는 tool calling 미지원 → opencode는 qwen2.5-coder:32b 사용
+    if [[ "${ROLE}" == "deputy" ]]; then
+        OPENCODE_MODEL="qwen2.5-coder:32b"
+        echo "[init] Pulling Ollama model (opencode TUI): ${OPENCODE_MODEL} ..."
+        ollama pull "${OPENCODE_MODEL}"
+    fi
 
     write_node_config "${ROLE}" "${MODEL}" "${VRAM_GB}"
 

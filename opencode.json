@@ -8,18 +8,21 @@
         "baseURL": "http://localhost:11434/v1"
       },
       "models": {
+        "qwen2.5-coder:32b": {
+          "name": "Qwen2.5-Coder 32B — Deputy Leader (opencode)"
+        },
         "gemma3:27b": {
-          "name": "Gemma3 27B — Deputy Leader"
+          "name": "Gemma3 27B — Daemon only"
         }
       }
     }
   },
-  "model": "ollama/gemma3:27b",
+  "model": "ollama/qwen2.5-coder:32b",
   "agent": {
     "deputy": {
       "description": "Deputy Leader — task decomposition, code review, Worker supervision",
       "mode": "primary",
-      "model": "ollama/gemma3:27b",
+      "model": "ollama/qwen2.5-coder:32b",
       "prompt": "AGENTS.md",
       "permission": {
         "edit": "ask",
