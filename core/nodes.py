@@ -17,8 +17,8 @@ from core.graph_state import NodeRole, NodeStatus, OrchestratorState, Task, Task
 
 # ── Ollama endpoints (each node runs its own local Ollama instance) ───────────
 OLLAMA_BASE = "http://localhost:11434"
-DEPUTY_MODEL = "gemma2:9b"    # fallback: mistral, llama3:8b
-WORKER_MODEL = "gemma2:2b"    # fallback: phi3:mini
+DEPUTY_MODEL = "gemma3:27b"   # Node A (RTX A5000 24GB): gemma3:27b installed
+WORKER_MODEL = "gemma2:2b"    # Node B (GTX 1070  8GB): fallback phi3:mini
 
 
 # ── Shared Ollama client ──────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ def _classify_by_vram(vram_gb: float) -> tuple[NodeRole, str]:
 
 DEPUTY_SYSTEM = """\
 You are the Deputy Leader in a multi-agent DevOps orchestration system.
-You have access to a high-capability local LLM (gemma2:9b class).
+You have access to a high-capability local LLM (gemma3:27b).
 Responsibilities:
 - Decompose complex tasks into executable subtasks
 - Review code and architecture decisions

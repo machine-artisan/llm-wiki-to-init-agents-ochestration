@@ -19,7 +19,7 @@ detect_vram_gb() {
 # ── Model selection ───────────────────────────────────────────────────────────
 select_model() {
     local vram_gb="$1"
-    if   (( vram_gb >= 20 )); then echo "gemma2:9b"
+    if   (( vram_gb >= 20 )); then echo "gemma3:27b"
     elif (( vram_gb >= 6  )); then echo "gemma2:2b"
     else                           echo "phi3:mini"
     fi

@@ -19,8 +19,8 @@ A **Self-Evolving DevOps Pipeline** combining LangGraph orchestration with GitOp
 │ RTX A5000  24GB VRAM│      │ GTX 1070   8GB VRAM │
 │ i7-12700F  64GB RAM │      │ i5-7500   32GB RAM  │
 │                     │      │                     │
-│ Model: gemma2:9b+   │      │ Model: gemma2:2b    │
-│        or mistral   │      │        or phi3:mini │
+│ Model: gemma3:27b   │      │ Model: gemma2:2b    │
+│                     │      │        or phi3:mini │
 └─────────────────────┘      └─────────────────────┘
 ```
 
@@ -29,7 +29,7 @@ A **Self-Evolving DevOps Pipeline** combining LangGraph orchestration with GitOp
 | Tier | Node | Model | Responsibilities |
 |------|------|-------|-----------------|
 | Leader | Claude API | claude-sonnet-4-6 | Task decomposition, routing, Wiki generation trigger |
-| Deputy | Node A | gemma2:9b / mistral | Complex reasoning, code review, Worker supervision |
+| Deputy | Node A | gemma3:27b | Complex reasoning, code review, Worker supervision |
 | Worker | Node B | gemma2:2b / phi3:mini | Script execution, log analysis, env monitoring |
 
 ## Git-Polling Synchronization Strategy
@@ -39,15 +39,15 @@ Nodes communicate exclusively through a shared GitHub repository — **Git acts 
 ```
 GitHub Repo
 ├── state/
-│   ├── global_state.json     ← LangGraph serialized state
-│   ├── node_a_heartbeat.json
-│   └── node_b_heartbeat.json
+│   ├── global_state.json          ← LangGraph serialized state
+│   └── <role>_heartbeat.json      ← Per-node liveness signal
 ├── tasks/
-│   ├── pending/              ← Leader pushes new tasks here
-│   ├── in_progress/          ← Nodes move tasks here on pickup
-│   └── completed/            ← Nodes push results here
+│   ├── pending/                   ← Leader pushes new tasks here
+│   ├── in_progress/               ← Nodes move tasks here on pickup
+│   └── completed/                 ← Nodes push results here
 └── wiki/
-    └── *.md                  ← Auto-generated LLM-Wiki documents
+    ├── INDEX.md                   ← Auto-generated index
+    └── <domain>/<date>_<id>.md    ← Decision & troubleshooting records
 ```
 
 ### Polling Flow
@@ -64,52 +64,103 @@ The Leader assigns tasks based on `complexity_score` (0–10):
 
 | Score | Assigned To | Rationale |
 |-------|-------------|-----------|
-| 7–10  | Node A only | Requires ≥9B model, long context, code gen |
-| 4–6   | Node A preferred | Benefits from larger model, fallback to B |
-| 0–3   | Node B | Simple classification, monitoring, execution |
+| 7–10  | Deputy only | Requires large model, long context, code generation |
+| 4–6   | Deputy preferred | Benefits from larger model, fallback to Worker |
+| 0–3   | Worker | Simple classification, monitoring, script execution |
 
 ## Quick Start
 
+### Step 1 — Leader initializes state (run once on Node A)
+
 ```bash
-git clone <repo-url>
+git clone https://github.com/machine-artisan/llm-wiki-to-init-agents-ochestration
 cd llm-wiki-to-init-agents-ochestration
-bash infra/init_env.sh             # Auto-detects GPU, pulls correct Ollama model
-python scripts/git_sync_daemon.py  # Start polling daemon
+pip install -r requirements.txt
+python scripts/init_leader_state.py   # creates state/global_state.json and pushes
 ```
+
+### Step 2 — Each node runs init and starts daemon
+
+```bash
+bash infra/init_env.sh             # detects GPU VRAM → pulls correct Ollama model
+python scripts/git_sync_daemon.py  # start polling daemon
+```
+
+Environment variables (optional):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POLL_INTERVAL_SECONDS` | `30` | How often to pull and check for tasks |
+| `HEARTBEAT_INTERVAL` | `60` | How often to push a liveness commit |
+| `GIT_REMOTE` | `origin` | Remote name to pull/push |
+| `GIT_BRANCH` | `main` | Branch to track |
 
 ## Stopping the Daemon (Graceful Shutdown)
 
-The daemon handles `SIGTERM` and `SIGINT` — it **finishes the current task first**, then marks the node offline in `state/global_state.json`, pushes a final commit to Git, and exits.
-
-### Recommended: use the stop script
+The daemon handles `SIGTERM` and `SIGINT` — it **finishes the current task first**, marks the node offline in `state/global_state.json`, pushes a final commit, then exits.
 
 ```bash
 bash scripts/stop_daemon.sh           # default 30s grace period
 bash scripts/stop_daemon.sh 60        # custom grace period in seconds
 ```
 
-### Manual signals
+Manual signals:
 
 ```bash
-# Graceful (waits for current task to finish, then pushes final state)
-kill -TERM $(cat state/daemon.pid)
-
-# Immediate keyboard interrupt (same graceful handler)
-Ctrl+C
-
-# Force kill — skips final Git push (last resort only)
-kill -KILL $(cat state/daemon.pid)
+kill -TERM $(cat state/daemon.pid)   # graceful
+kill -KILL $(cat state/daemon.pid)   # force (skips final Git push)
 ```
 
-### What happens on graceful stop
+## Scaling to Additional Nodes
 
-1. `_shutdown_requested` flag is set — no new tasks are picked up
-2. Current in-progress task runs to completion
-3. `node_X_status.is_available = False` is written to `state/global_state.json`
-4. Final state is committed and pushed to the shared repo
-5. `state/daemon.pid` is removed
-6. Process exits 0
+The system is designed to grow beyond the initial two nodes. When adding Node C or later:
+
+### VRAM thresholds and auto-assigned roles
+
+| VRAM | Auto Role | Model |
+|------|-----------|-------|
+| ≥ 20 GB | Deputy | gemma3:27b |
+| 6 – 19 GB | Worker | gemma2:2b |
+| < 6 GB | Worker (CPU) | phi3:mini |
+
+### How to add a new node
+
+1. `git clone` the repo on the new machine
+2. Run `bash infra/init_env.sh` — role and model are assigned automatically based on detected VRAM
+3. Start `python scripts/git_sync_daemon.py`
+4. The daemon will self-register via a heartbeat commit (`state/<role>_heartbeat.json`)
+
+> **Note:** The current `OrchestratorState` tracks exactly two nodes (`node_a_status`, `node_b_status`).
+> For a third node, either reuse the `worker` role (Node B and C both poll for `worker` tasks) or
+> extend `OrchestratorState` with a `node_c_status` field and add a new `NodeRole` enum value.
+
+### Recommended expansion path
+
+```
+Node C (spare GPU ≥ 6GB) → Worker role — increases parallel Worker capacity
+Node D (high VRAM ≥ 20GB) → Deputy role — increases Deputy throughput
+```
+
+Multiple Workers with the same role will race to pick up tasks from the pending queue; whichever polls first wins. No additional code is needed for Worker-level horizontal scaling.
 
 ## LLM-Wiki
 
-All architectural decisions and troubleshooting are auto-documented in `wiki/` as Markdown, pushed to this repo. See `wiki_generator/pipeline.py` for generation logic.
+All architectural decisions and troubleshooting events are auto-documented under `wiki/` as Markdown files, committed and pushed by the daemon after each qualifying task completes.
+
+```bash
+cat wiki/INDEX.md                          # see all generated entries
+find wiki/ -name "*.md" | sort -r | head   # latest entries
+```
+
+Domain classification is automatic based on task description keywords:
+
+| Domain folder | Trigger keywords |
+|---------------|-----------------|
+| `infra/` | docker, ollama, gpu, install |
+| `orchestration/` | langgraph, state, routing, agent |
+| `devops/` | ci, cd, pipeline, git, deploy |
+| `troubleshoot/` | error, fail, fix, debug |
+| `architecture/` | design, decision, adr, refactor |
+| `general/` | (anything else) |
+
+View on GitHub: `https://github.com/machine-artisan/llm-wiki-to-init-agents-ochestration/tree/main/wiki`
