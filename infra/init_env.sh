@@ -81,6 +81,8 @@ ensure_opencode() {
     fi
     echo "[init] Installing opencode..."
     if curl -fsSL https://opencode.ai/install | bash; then
+        # 설치 후 현재 쉘 세션 PATH에도 즉시 반영
+        export PATH="${HOME}/.opencode/bin:${PATH}"
         echo "[init] opencode installed."
     else
         echo "[init] WARNING: opencode install failed. Install manually:"
@@ -156,7 +158,8 @@ main() {
     echo "======================================================"
     echo "  Init complete. Next steps:"
     echo ""
-    echo "  # 가상환경 활성화"
+    echo "  # 가상환경 활성화 (새 터미널이면 아래 두 줄 모두 실행)"
+    echo "  export PATH=\"\${HOME}/.opencode/bin:\${PATH}\""
     echo "  source .venv/bin/activate"
     echo ""
     if [[ "${ROLE}" == "deputy" ]]; then
