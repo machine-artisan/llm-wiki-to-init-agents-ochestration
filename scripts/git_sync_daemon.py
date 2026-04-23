@@ -20,6 +20,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# repo root를 sys.path에 추가 (scripts/ 하위에서 실행 시 core/ 를 찾기 위해)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import git  # gitpython
 
 from core.graph_state import NodeRole, OrchestratorState, Task, TaskStatus

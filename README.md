@@ -174,6 +174,49 @@ python scripts/verify_deputy.py
 
 ---
 
+## Interacting with Deputy Without Claude Code CLI
+
+Claude Code CLI가 없을 때 Deputy(gemma3:27b)에게 요청을 전달하는 방법은 3가지다.
+
+### 방법 1 — deputy_cli.py (권장)
+
+프로젝트 내장 CLI. 대화 기록 유지, 태스크 주입, 상태 확인이 모두 가능하다.
+
+```bash
+# 대화 모드 (기본)
+python scripts/deputy_cli.py
+
+# 태스크 직접 주입 모드
+python scripts/deputy_cli.py task
+```
+
+대화 중 사용할 수 있는 명령어:
+
+| 입력 | 동작 |
+|------|------|
+| `/task` | 태스크 주입 모드로 전환 |
+| `/state` | global_state.json 요약 출력 |
+| `/clear` | 대화 컨텍스트 초기화 |
+| `exit` | 종료 |
+
+### 방법 2 — Ollama CLI (간단한 단발 질문)
+
+```bash
+ollama run gemma3:27b
+# 또는 단발 질문:
+echo "List 3 subtasks to deploy a FastAPI service" | ollama run gemma3:27b
+```
+
+### 방법 3 — Ollama REST API (스크립트/자동화)
+
+```bash
+curl -s http://localhost:11434/api/generate \
+  -d '{"model":"gemma3:27b","prompt":"Your prompt here","stream":false}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['response'])"
+```
+
+---
+
 ## Offline / Claude-less Operation
 
 Claude API(`LEADER`)가 없을 때 Deputy(Node A)는 **단독 최상위 의사결정자**로 동작한다.
