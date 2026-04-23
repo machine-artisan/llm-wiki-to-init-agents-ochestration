@@ -7,6 +7,6 @@ dist/
 build/
 .env
 
-logs/
+logs/*.log
 state/daemon.pid
 state/node_config.json
