@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "gemma3:27b": {
+          "name": "Gemma3 27B — Deputy Leader"
+        }
+      }
+    }
+  },
+  "model": "ollama/gemma3:27b",
+  "agent": {
+    "deputy": {
+      "description": "Deputy Leader — task decomposition, code review, Worker supervision",
+      "mode": "primary",
+      "model": "ollama/gemma3:27b",
+      "prompt": "AGENTS.md",
+      "permission": {
+        "edit": "ask",
+        "bash": {
+          "*": "ask",
+          "git status": "allow",
+          "git log --oneline -10": "allow",
+          "git diff": "allow",
+          "cat state/global_state.json": "allow",
+          "cat wiki/INDEX.md": "allow",
+          "find wiki -name '*.md'": "allow",
+          "ollama ps": "allow",
+          "nvidia-smi": "allow"
+        }
+      }
+    }
+  },
+  "keybinds": {
+    "leader": "ctrl+x"
+  }
+}

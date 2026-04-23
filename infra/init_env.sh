@@ -68,6 +68,26 @@ setup_venv() {
     echo "[init] Python deps installed."
 }
 
+# ── OpenCode 설치 (Deputy 노드 전용 — VRAM >= 20GB) ──────────────────────────
+ensure_opencode() {
+    local role="$1"
+    if [[ "${role}" != "deputy" ]]; then
+        echo "[init] Worker node — skipping opencode install."
+        return
+    fi
+    if command -v opencode &>/dev/null; then
+        echo "[init] opencode already installed: $(opencode --version 2>/dev/null || echo 'unknown version')"
+        return
+    fi
+    echo "[init] Installing opencode..."
+    if curl -fsSL https://opencode.ai/install | bash; then
+        echo "[init] opencode installed."
+    else
+        echo "[init] WARNING: opencode install failed. Install manually:"
+        echo "       curl -fsSL https://opencode.ai/install | bash"
+    fi
+}
+
 # ── Ollama install ────────────────────────────────────────────────────────────
 ensure_ollama() {
     if ! command -v ollama &>/dev/null; then
@@ -123,6 +143,7 @@ main() {
 
     ensure_python3
     setup_venv
+    ensure_opencode "${ROLE}"
     ensure_ollama
     start_ollama_server
 
@@ -142,10 +163,16 @@ main() {
     echo "  # (Node A only) 전체 상태 초기화 — 최초 1회만"
     echo "  python scripts/init_leader_state.py"
     echo ""
-    fi
-    echo "  # Deputy 검증 (Node A only)"
+    echo "  # Deputy 검증"
     echo "  python scripts/verify_deputy.py"
     echo ""
+    echo "  # Deputy 대화 인터페이스 (opencode TUI)"
+    echo "  opencode"
+    echo ""
+    echo "  # 태스크 주입 전용 CLI"
+    echo "  python scripts/deputy_cli.py task"
+    echo ""
+    fi
     echo "  # 데몬 시작"
     echo "  python scripts/git_sync_daemon.py"
     echo "======================================================"

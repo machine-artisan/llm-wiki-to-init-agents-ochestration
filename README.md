@@ -176,43 +176,40 @@ python scripts/verify_deputy.py
 
 ## Interacting with Deputy Without Claude Code CLI
 
-Claude Code CLI가 없을 때 Deputy(gemma3:27b)에게 요청을 전달하는 방법은 3가지다.
+Claude Code CLI가 없을 때 Deputy(gemma3:27b)와 상호작용하는 방법.
 
-### 방법 1 — deputy_cli.py (권장)
+### 방법 1 — opencode TUI (권장 · Node A 전용)
 
-프로젝트 내장 CLI. 대화 기록 유지, 태스크 주입, 상태 확인이 모두 가능하다.
+오픈소스 터미널 AI 에이전트. Ollama 백엔드를 지원하며 파일 읽기·편집·bash 실행까지 가능하다.
+프로젝트 루트의 `opencode.json`과 `AGENTS.md`가 자동 로드되어 Deputy Leader 역할로 시작된다.
 
 ```bash
-# 대화 모드 (기본)
-python scripts/deputy_cli.py
-
-# 태스크 직접 주입 모드
-python scripts/deputy_cli.py task
+# 프로젝트 루트에서 실행 (opencode.json 자동 감지)
+opencode
 ```
 
-대화 중 사용할 수 있는 명령어:
+설정 파일:
 
-| 입력 | 동작 |
+| 파일 | 역할 |
 |------|------|
-| `/task` | 태스크 주입 모드로 전환 |
-| `/state` | global_state.json 요약 출력 |
-| `/clear` | 대화 컨텍스트 초기화 |
-| `exit` | 종료 |
+| `opencode.json` | Ollama provider, 모델, 권한 설정 |
+| `AGENTS.md` | Deputy Leader 시스템 프롬프트 및 프로젝트 컨텍스트 |
 
-### 방법 2 — Ollama CLI (간단한 단발 질문)
+> **Node B(Worker)에서는 사용 불가** — gemma2:2b는 tool use 미지원.
+
+### 방법 2 — deputy_cli.py (태스크 주입 · 상태 확인)
+
+대화 기능은 opencode로 이전. 이 스크립트는 오케스트레이션 고유 작업 전용.
+
+```bash
+python scripts/deputy_cli.py task    # global_state.json에 태스크 주입 후 push
+python scripts/deputy_cli.py state   # 현재 상태 요약 출력
+```
+
+### 방법 3 — Ollama CLI (단발 질문)
 
 ```bash
 ollama run gemma3:27b
-# 또는 단발 질문:
-echo "List 3 subtasks to deploy a FastAPI service" | ollama run gemma3:27b
-```
-
-### 방법 3 — Ollama REST API (스크립트/자동화)
-
-```bash
-curl -s http://localhost:11434/api/generate \
-  -d '{"model":"gemma3:27b","prompt":"Your prompt here","stream":false}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['response'])"
 ```
 
 ---
